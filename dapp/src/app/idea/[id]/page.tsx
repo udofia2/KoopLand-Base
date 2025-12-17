@@ -1,17 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { use } from "react";
+import { useRouter } from "next/navigation";
 import { ExternalLink, Check, Download } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { RatingDisplay } from "@/components/RatingDisplay";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { dummyIdeas } from "@/lib/dummyData";
-import { Idea } from "@/lib/types";
+import type { Idea } from "@/lib/types";
 
 interface IdeaDetailPageProps {
   params: Promise<{ id: string }>;
@@ -19,21 +20,135 @@ interface IdeaDetailPageProps {
 
 export default function IdeaDetailPage({ params }: IdeaDetailPageProps) {
   const { id } = use(params);
+  const router = useRouter();
+  const [idea, setIdea] = useState<Idea | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
-  const [selectedToken, setSelectedToken] = useState("BTC");
+  const [isProcessing, setIsProcessing] = useState(false);
   const [isPurchased, setIsPurchased] = useState(false);
   const [showFullContent, setShowFullContent] = useState(false);
 
-  const idea = dummyIdeas.find((i) => i.id === id);
+  useEffect(() => {
+    const fetchIdea = async () => {
+      try {
+        const res = await fetch(`/api/ideas/${id}`);
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json.error || "Failed to load idea");
+        }
+        setIdea(json.idea);
+      } catch (err: any) {
+        setError(err.message || "Failed to load idea");
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  if (!idea) {
+    fetchIdea();
+  }, [id]);
+
+  const handlePurchase = () => {
+    setShowPurchaseModal(true);
+  };
+
+  const handleConfirmPurchase = async () => {
+    setIsProcessing(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        toast.error("Please sign in to purchase ideas");
+        router.push("/login");
+        return;
+      }
+
+      const response = await fetch("/api/payments/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ideaId: id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast.error(result.error || "Failed to create checkout");
+        return;
+      }
+
+      // Redirect to SideShift payment page
+      window.location.href = result.paymentUrl;
+    } catch (error) {
+      console.error("Purchase error:", error);
+      toast.error("An error occurred. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDownloadCsv = () => {
+    if (!idea) return;
+
+    const rows = [
+      ["Title", idea.title],
+      ["Preview", idea.preview],
+      ["Full Content", idea.fullContent],
+      ["Categories", idea.categories.join(", ")],
+      ["Price (USD)", idea.price.toString()],
+    ];
+
+    const csvContent =
+      rows
+        .map((row) =>
+          row
+            .map((value) => {
+              const safe = String(value).replace(/"/g, '""');
+              return `"${safe}"`;
+            })
+            .join(",")
+        )
+        .join("\n") + "\n";
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `idea-${idea.id}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast.success(
+      "CSV downloaded. Keep it safe – if you lose it, you'll need to repurchase the idea."
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col">
+        <Header />
+        <main className="grow flex items-center justify-center">
+          <p className="text-sm text-muted-foreground">Loading idea...</p>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error || !idea) {
     return (
       <div className="min-h-screen bg-white flex flex-col">
         <Header />
         <main className="grow flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-foreground mb-4">
-              Idea Not Found
+              {error || "Idea Not Found"}
             </h1>
             <Link href="/marketplace">
               <Button className="bg-tan hover:bg-tan/90 text-white">
@@ -47,22 +162,6 @@ export default function IdeaDetailPage({ params }: IdeaDetailPageProps) {
     );
   }
 
-  const handlePurchase = () => {
-    setShowPurchaseModal(true);
-  };
-
-  const handleConfirmPurchase = () => {
-    console.log("Processing payment via SideShift with", selectedToken);
-    // Mock purchase flow
-    setTimeout(() => {
-      setIsPurchased(true);
-      setShowFullContent(true);
-      setShowPurchaseModal(false);
-    }, 2000);
-  };
-
-  const paymentTokens = ["BTC", "ETH", "USDC", "MATIC", "SOL", "AVAX"];
-
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <Header />
@@ -73,7 +172,11 @@ export default function IdeaDetailPage({ params }: IdeaDetailPageProps) {
           <div className="lg:col-span-2 space-y-6">
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <CategoryBadge category={idea.category} />
+                <div className="flex flex-wrap gap-2">
+                  {idea.categories.map((cat) => (
+                    <CategoryBadge key={cat} category={cat} />
+                  ))}
+                </div>
                 <div className="flex items-center gap-1 bg-tan text-white px-2 py-0.5 rounded-full text-xs">
                   <Check className="h-3 w-3" />
                   <span>AI Verified</span>
@@ -115,25 +218,34 @@ export default function IdeaDetailPage({ params }: IdeaDetailPageProps) {
             </div>
 
             {/* Price and Purchase */}
-            <div className="bg-white border border-lightgray rounded-lg p-6">
-              <div className="mb-4">
+            <div className="bg-white border border-lightgray rounded-lg p-6 space-y-4">
+              <div>
                 <p className="text-sm text-muted-foreground mb-1">Price</p>
                 <p className="text-4xl font-bold text-foreground">
                   ${idea.price}
                 </p>
                 <p className="text-sm text-muted-foreground">USD</p>
               </div>
-              <Button
-                onClick={handlePurchase}
-                className="w-full bg-tan hover:bg-tan/90 text-white"
-                disabled={isPurchased}
-              >
-                {isPurchased ? "Already Purchased" : "Buy Idea NFT"}
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  onClick={handlePurchase}
+                  className="w-full bg-tan hover:bg-tan/90 text-white"
+                  disabled={isPurchased}
+                >
+                  {isPurchased ? "Already Purchased" : "Pay with SideShift"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full border-dashed border-lightgray text-muted-foreground cursor-not-allowed"
+                  disabled
+                >
+                  Pay with Connected Wallet (coming soon)
+                </Button>
+              </div>
               {!isPurchased && (
-                <p className="mt-3 text-sm text-muted-foreground text-center">
-                  Pay with any crypto via{" "}
-                  <span className="font-semibold">SideShift</span>
+                <p className="mt-1 text-xs text-muted-foreground text-center">
+                  You do not need to connect a wallet if you plan to pay with
+                  SideShift.
                 </p>
               )}
             </div>
@@ -166,18 +278,12 @@ export default function IdeaDetailPage({ params }: IdeaDetailPageProps) {
             {!isPurchased && (
               <div className="bg-lightgray rounded-lg p-6">
                 <h3 className="font-semibold text-foreground mb-2">
-                  Supported Payment Tokens
+                  Payment Information
                 </h3>
-                <div className="flex flex-wrap gap-2">
-                  {paymentTokens.map((token) => (
-                    <span
-                      key={token}
-                      className="px-3 py-1 bg-white rounded-full text-sm text-foreground"
-                    >
-                      {token}
-                    </span>
-                  ))}
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  Pay with any supported cryptocurrency via SideShift Pay.
+                  You'll be redirected to complete your payment securely.
+                </p>
               </div>
             )}
           </div>
@@ -210,10 +316,18 @@ export default function IdeaDetailPage({ params }: IdeaDetailPageProps) {
                   <p className="text-sm text-muted-foreground mb-4 whitespace-pre-line">
                     {idea.fullContent}
                   </p>
-                  <Button variant="outline" className="w-full border-lightgray">
+                  <Button
+                    variant="outline"
+                    className="w-full border-lightgray"
+                    onClick={handleDownloadCsv}
+                  >
                     <Download className="h-4 w-4 mr-2" />
-                    Download
+                    Download CSV
                   </Button>
+                  <p className="mt-2 text-xs text-muted-foreground text-center">
+                    Keep your CSV safe. If you lose it, you&apos;ll need to
+                    purchase the idea again to regain access.
+                  </p>
                 </>
               )}
 
@@ -231,37 +345,44 @@ export default function IdeaDetailPage({ params }: IdeaDetailPageProps) {
       <Modal
         isOpen={showPurchaseModal}
         onClose={() => setShowPurchaseModal(false)}
-        title="Select Payment Token"
+        title="Purchase Idea"
       >
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Choose your payment token. Payment will be processed via{" "}
-            <span className="font-semibold">SideShift</span>.
+            You will be redirected to SideShift Pay to complete your purchase.
+            You can pay with any supported cryptocurrency.
           </p>
-          <select
-            value={selectedToken}
-            onChange={(e) => setSelectedToken(e.target.value)}
-            className="w-full h-10 px-3 rounded-md border border-lightgray bg-white text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tan focus-visible:ring-offset-2"
-          >
-            {paymentTokens.map((token) => (
-              <option key={token} value={token}>
-                {token}
-              </option>
-            ))}
-          </select>
-          <div className="flex gap-3">
+          <div className="bg-lightgray rounded-lg p-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-muted-foreground">Price:</span>
+              <span className="text-lg font-bold text-foreground">
+                ${idea.price}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">
+                Payment Chain:
+              </span>
+              <span className="text-sm font-medium text-foreground capitalize">
+                {idea.preferredChain}
+              </span>
+            </div>
+          </div>
+          <div className="flex gap-2">
             <Button
               variant="outline"
               className="flex-1 border-lightgray"
               onClick={() => setShowPurchaseModal(false)}
+              disabled={isProcessing}
             >
               Cancel
             </Button>
             <Button
               className="flex-1 bg-tan hover:bg-tan/90 text-white"
               onClick={handleConfirmPurchase}
+              disabled={isProcessing}
             >
-              Proceed with SideShift
+              {isProcessing ? "Processing..." : "Proceed to Payment"}
             </Button>
           </div>
         </div>

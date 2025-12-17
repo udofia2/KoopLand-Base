@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Search, Filter, ArrowUpDown } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { IdeaCard } from "@/components/IdeaCard";
 import { Input } from "@/components/ui/input";
-import { dummyIdeas, categories } from "@/lib/dummyData";
-import { Idea, Category } from "@/lib/types";
+import { Idea, Category, categories } from "@/lib/types";
 
 type SortOption =
   | "newest"
@@ -17,18 +16,42 @@ type SortOption =
   | "price-high";
 
 export default function MarketplacePage() {
+  const [ideas, setIdeas] = useState<Idea[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<Category | "All">(
     "All"
   );
   const [sortBy, setSortBy] = useState<SortOption>("newest");
 
+  useEffect(() => {
+    const fetchIdeas = async () => {
+      try {
+        const res = await fetch("/api/ideas");
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json.error || "Failed to load ideas");
+        }
+        setIdeas(json.ideas || []);
+      } catch (err: any) {
+        setError(err.message || "Failed to load ideas");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchIdeas();
+  }, []);
+
   const filteredAndSortedIdeas = useMemo(() => {
-    let filtered = [...dummyIdeas];
+    let filtered = [...ideas];
 
     // Filter by category
     if (selectedCategory !== "All") {
-      filtered = filtered.filter((idea) => idea.category === selectedCategory);
+      filtered = filtered.filter((idea) =>
+        idea.categories.includes(selectedCategory)
+      );
     }
 
     // Filter by search query
@@ -38,7 +61,7 @@ export default function MarketplacePage() {
         (idea) =>
           idea.title.toLowerCase().includes(query) ||
           idea.preview.toLowerCase().includes(query) ||
-          idea.category.toLowerCase().includes(query)
+          idea.categories.some((cat) => cat.toLowerCase().includes(query))
       );
     }
 
@@ -131,30 +154,47 @@ export default function MarketplacePage() {
           </div>
         </div>
 
-        {/* Results Count */}
-        <div className="mb-6 text-sm text-muted-foreground">
-          Showing {filteredAndSortedIdeas.length} idea
-          {filteredAndSortedIdeas.length !== 1 ? "s" : ""}
-        </div>
-
-        {/* Ideas Grid */}
-        {filteredAndSortedIdeas.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredAndSortedIdeas.map((idea) => (
-              <IdeaCard key={idea.id} idea={idea} />
-            ))}
-          </div>
-        ) : (
+        {/* Results / Loading / Error */}
+        {isLoading ? (
           <div className="text-center py-12">
-            <p className="text-lg text-muted-foreground mb-2">No ideas found</p>
+            <p className="text-sm text-muted-foreground">Loading ideas...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <p className="text-sm text-destructive mb-2">{error}</p>
             <p className="text-sm text-muted-foreground">
-              Try adjusting your search or filters
+              Please refresh the page to try again.
             </p>
           </div>
+        ) : (
+          <>
+            <div className="mb-6 text-sm text-muted-foreground">
+              Showing {filteredAndSortedIdeas.length} idea
+              {filteredAndSortedIdeas.length !== 1 ? "s" : ""}
+            </div>
+
+            {filteredAndSortedIdeas.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredAndSortedIdeas.map((idea) => (
+                  <IdeaCard key={idea.id} idea={idea} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-lg text-muted-foreground mb-2">
+                  No ideas found
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Try adjusting your search or filters
+                </p>
+              </div>
+            )}
+          </>
         )}
       </main>
 
       <Footer />
     </div>
+   
   );
 }

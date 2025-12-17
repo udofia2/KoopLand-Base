@@ -23,7 +23,11 @@ export function IdeaCard({ idea }: IdeaCardProps) {
         )}
       >
         <div className="flex items-start justify-between mb-3">
-          <CategoryBadge category={idea.category} />
+          <div className="flex flex-wrap gap-2">
+            {idea.categories.map((cat) => (
+              <CategoryBadge key={cat} category={cat} />
+            ))}
+          </div>
           <div className="flex items-center gap-1 bg-tan text-white px-2 py-0.5 rounded-full text-xs">
             <Check className="h-3 w-3" />
             <span>AI Verified</span>

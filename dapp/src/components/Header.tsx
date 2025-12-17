@@ -1,21 +1,44 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { User, LogOut, Plus, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
-
-// Mock auth state - replace with real auth later
-const isAuthenticated = false; // Change to true to test authenticated state
-const userName = "John Doe";
+import type { User as AppUser } from "@/lib/types";
 
 export function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const userStr = localStorage.getItem("user");
+      if (!userStr) {
+        setCurrentUser(null);
+        return;
+      }
+      const parsed = JSON.parse(userStr) as AppUser;
+      setCurrentUser(parsed);
+    } catch {
+      setCurrentUser(null);
+    }
+  }, []);
+
+  const handleSignOut = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+    }
+    setCurrentUser(null);
+    router.push("/");
+  };
 
   const navLinks = [
     { href: "/marketplace", label: "Marketplace" },
@@ -52,7 +75,7 @@ export function Header() {
           {/* Auth Buttons / User Menu */}
           <div className="hidden md:flex items-center gap-4">
             <ConnectButton />
-            {isAuthenticated ? (
+            {currentUser ? (
               <div className="relative">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -60,7 +83,7 @@ export function Header() {
                 >
                   <User className="h-5 w-5 text-foreground" />
                   <span className="text-sm font-medium text-foreground">
-                    {userName}
+                    {currentUser.name}
                   </span>
                 </button>
                 {isUserMenuOpen && (
@@ -81,7 +104,7 @@ export function Header() {
                     </Link>
                     <button
                       className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-lightgray flex items-center gap-2"
-                      onClick={() => setIsUserMenuOpen(false)}
+                      onClick={handleSignOut}
                     >
                       <LogOut className="h-4 w-4" />
                       Sign Out
@@ -139,7 +162,7 @@ export function Header() {
             <div className="px-4 py-2">
               <ConnectButton />
             </div>
-            {isAuthenticated ? (
+            {currentUser ? (
               <>
                 <Link
                   href="/profile"
@@ -150,7 +173,7 @@ export function Header() {
                 </Link>
                 <button
                   className="block w-full text-left px-4 py-2 text-sm font-medium text-foreground hover:text-tan"
-                  onClick={() => setIsMenuOpen(false)}
+                  onClick={handleSignOut}
                 >
                   Sign Out
                 </button>

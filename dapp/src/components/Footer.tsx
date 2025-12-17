@@ -12,7 +12,9 @@ export function Footer() {
             </p>
             <p className="text-sm text-muted-foreground">
               Powered by{" "}
-              <span className="font-semibold text-foreground">SideShift</span>
+              <span className="font-semibold text-foreground">SideShift</span>,{" "}
+              <span className="font-semibold text-foreground">Polygon Labs</span>{" "}
+              through <span className="font-semibold text-foreground">AKINDO</span>.
             </p>
           </div>
           <div>
@@ -79,3 +81,4 @@ export function Footer() {
     </footer>
   );
 }
+

@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { Sparkles, ArrowRight, Shield, Coins, FileText } from "lucide-react";
+import { Sparkles, ArrowRight, Coins, FileText } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { stats } from "@/lib/dummyData";
 
 export default function Home() {
   return (
@@ -20,10 +19,19 @@ export default function Home() {
             <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-foreground mb-6">
               Discover AI-Vetted Ideas, Buy with Any Token
             </h2>
-            <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
+            <p className="text-lg text-muted-foreground mb-4 max-w-2xl mx-auto">
               Every idea is rated by AI for originality and value. Buy
-              seamlessly using any cryptocurrency 
-              - the direct-to-wallet crypto exchange.
+              seamlessly using any cryptocurrency via{" "}
+              <span className="font-semibold">SideShift Pay</span>.
+            </p>
+            <p className="text-sm text-muted-foreground mb-8 max-w-2xl mx-auto">
+              <span className="font-semibold">Buyers:</span> you don&apos;t need
+              to connect a wallet if you plan to pay with SideShift – just
+              choose &quot;Pay with SideShift&quot; at checkout.
+              <br />
+              <span className="font-semibold">Sellers:</span> your ideas will be
+              minted as NFTs and delivered to your connected wallet after
+              upload and purchase.
             </p>
             <Link href="/marketplace">
               <Button
@@ -61,12 +69,13 @@ export default function Home() {
                   <Coins className="h-8 w-8 text-white" />
                 </div>
                 <h3 className="text-xl font-semibold text-foreground mb-3">
-                  Cross-Chain Payments
+                  SideShift-Powered Payments
                 </h3>
                 <p className="text-muted-foreground">
                   Pay with any cryptocurrency through{" "}
-                  {/* <span className="font-semibold">SideShift</span>, supporting */}
-                  BTC, ETH, USDC, and more.
+                  <span className="font-semibold">SideShift Pay</span> – no
+                  account needed, and no wallet connection required if you pay
+                  via SideShift.
                 </p>
               </div>
               <div className="text-center p-6">
@@ -77,38 +86,10 @@ export default function Home() {
                   NFT Ownership
                 </h3>
                 <p className="text-muted-foreground">
-                  Each purchased idea is minted as an NFT, giving you verifiable
-                  ownership and the ability to resell.
+                  Each purchased idea is minted as an NFT to the seller&apos;s
+                  wallet, with buyers receiving a downloadable CSV copy of the
+                  full idea content.
                 </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Stats Section */}
-        <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24 bg-lightgray">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-center text-foreground mb-12">
-              Platform Statistics
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="text-center p-6 bg-white rounded-lg">
-                <div className="text-4xl font-bold text-tan mb-2">
-                  {stats.totalIdeas}
-                </div>
-                <div className="text-muted-foreground">Total Ideas Listed</div>
-              </div>
-              <div className="text-center p-6 bg-white rounded-lg">
-                <div className="text-4xl font-bold text-tan mb-2">
-                  {stats.totalSales}
-                </div>
-                <div className="text-muted-foreground">Total Sales</div>
-              </div>
-              <div className="text-center p-6 bg-white rounded-lg">
-                <div className="text-4xl font-bold text-tan mb-2">
-                  {stats.activeSellers}
-                </div>
-                <div className="text-muted-foreground">Active Sellers</div>
               </div>
             </div>
           </div>
@@ -119,3 +100,4 @@ export default function Home() {
     </div>
   );
 }
+
