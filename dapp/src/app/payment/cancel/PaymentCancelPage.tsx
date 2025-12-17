@@ -1,7 +1,5 @@
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+"use client"; // MUST BE FIRST LINE, NO PARENTHESES
 
-("use client");
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
