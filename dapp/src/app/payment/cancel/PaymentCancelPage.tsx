@@ -1,4 +1,4 @@
-"use client"; // MUST BE FIRST LINE, NO PARENTHESES
+"use client";
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -7,6 +7,9 @@ import { XCircle } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
+
+export const dynamic = "force-dynamic"; // ADD THIS
+export const revalidate = 0; // ADD THIS
 
 export default function PaymentCancelPage() {
   const searchParams = useSearchParams();

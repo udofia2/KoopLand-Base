@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ["pino", "thread-stream"],
+    // serverComponentsExternalPackages: ["pino", "thread-stream"],
   },
 
   serverExternalPackages: ["mongoose", "bcryptjs", "jsonwebtoken"], // ✅ NEW
