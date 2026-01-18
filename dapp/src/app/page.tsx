@@ -22,7 +22,7 @@ export default function Home() {
             <p className="text-lg text-muted-foreground mb-4 max-w-2xl mx-auto">
               Every idea is rated by AI for originality and value. Buy
               seamlessly using any cryptocurrency via{" "}
-              <span className="font-semibold">SideShift Pay</span>.
+              <span className="font-semibold">SideShift Pay & Polygon Network</span>.
             </p>
             <p className="text-sm text-muted-foreground mb-8 max-w-2xl mx-auto">
               <span className="font-semibold">Buyers:</span> you don&apos;t need

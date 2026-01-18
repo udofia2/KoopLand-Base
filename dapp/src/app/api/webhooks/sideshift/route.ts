@@ -1,15 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
-import { getSideShiftCheckout } from "@/lib/services/sideshift";
-import { ObjectId } from "mongodb"; // ✅ ADD THIS IMPORT
+import { NextRequest, NextResponse } from 'next/server';
+import { getDb } from '@/lib/db';
+import { getSideShiftCheckout } from '@/lib/services/sideshift';
 
 interface PurchaseDocument {
-  _id?: ObjectId; // ✅ Changed from string to ObjectId
-  ideaId: string; // This stays as string (we'll convert when querying)
+  _id?: string;
+  ideaId: string;
   buyerId: string;
   checkoutId: string;
   shiftId?: string;
-  status: "pending" | "completed" | "failed";
+  status: 'pending' | 'completed' | 'failed';
   totalAmount: number;
   commission: number;
   sellerAmount: number;
@@ -24,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     if (!payload) {
       return NextResponse.json(
-        { error: "Invalid webhook payload" },
+        { error: 'Invalid webhook payload' },
         { status: 400 }
       );
     }
@@ -32,11 +31,14 @@ export async function POST(request: NextRequest) {
     const { shiftId, status, txid } = payload;
 
     if (!shiftId) {
-      return NextResponse.json({ error: "Missing shiftId" }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Missing shiftId' },
+        { status: 400 }
+      );
     }
 
     const db = await getDb();
-    const purchasesCollection = db.collection<PurchaseDocument>("purchases");
+    const purchasesCollection = db.collection<PurchaseDocument>('purchases');
 
     // Try to find purchase by shiftId first (if already stored)
     let purchase = await purchasesCollection.findOne({ shiftId });
@@ -46,7 +48,7 @@ export async function POST(request: NextRequest) {
     // We'll query all pending purchases and check their checkouts for matching shiftId
     if (!purchase) {
       const pendingPurchases = await purchasesCollection
-        .find({ status: "pending" })
+        .find({ status: 'pending' })
         .sort({ createdAt: -1 })
         .limit(50)
         .toArray();
@@ -54,9 +56,7 @@ export async function POST(request: NextRequest) {
       // Try to find the checkout that contains this shiftId
       for (const pendingPurchase of pendingPurchases) {
         try {
-          const checkout = await getSideShiftCheckout(
-            pendingPurchase.checkoutId
-          );
+          const checkout = await getSideShiftCheckout(pendingPurchase.checkoutId);
           // Check if this checkout has an order with matching shiftId
           if (checkout?.orders && Array.isArray(checkout.orders)) {
             const matchingOrder = checkout.orders.find(
@@ -75,17 +75,17 @@ export async function POST(request: NextRequest) {
     }
 
     if (!purchase) {
-      console.warn("Purchase not found for shiftId:", shiftId);
+      console.warn('Purchase not found for shiftId:', shiftId);
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
     // Update purchase status
-    if (status === "success") {
+    if (status === 'success') {
       await purchasesCollection.updateOne(
-        { _id: purchase._id }, // ✅ This is already ObjectId from findOne
+        { _id: purchase._id },
         {
           $set: {
-            status: "completed",
+            status: 'completed',
             shiftId,
             updatedAt: new Date(),
           },
@@ -93,23 +93,21 @@ export async function POST(request: NextRequest) {
       );
 
       // Update idea sales count
-      const ideasCollection = db.collection("ideas");
+      const ideasCollection = db.collection('ideas');
       await ideasCollection.updateOne(
-        { _id: new ObjectId(purchase.ideaId) }, // ✅ FIX: Convert string to ObjectId
+        { _id: purchase.ideaId },
         {
           $inc: { salesCount: 1 },
         }
       );
 
-      console.log(
-        `Purchase ${purchase._id} completed for idea ${purchase.ideaId}`
-      );
-    } else if (status === "fail") {
+      console.log(`Purchase ${purchase._id} completed for idea ${purchase.ideaId}`);
+    } else if (status === 'fail') {
       await purchasesCollection.updateOne(
-        { _id: purchase._id }, // ✅ This is already ObjectId from findOne
+        { _id: purchase._id },
         {
           $set: {
-            status: "failed",
+            status: 'failed',
             updatedAt: new Date(),
           },
         }
@@ -120,10 +118,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error: any) {
-    console.error("Webhook error:", error);
+    console.error('Webhook error:', error);
     return NextResponse.json(
-      { error: "Webhook processing failed" },
+      { error: 'Webhook processing failed' },
       { status: 500 }
     );
   }
 }
+
