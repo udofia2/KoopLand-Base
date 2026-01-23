@@ -122,11 +122,13 @@ export default function CreateIdeaPage() {
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    console.log("[handleImageChange] file: ", file);
     if (!file) return;
 
     // Validate file type
     if (!file.type.startsWith("image/")) {
       toast.error("Please select an image file");
+      console.log("[handleImageChange] Not an image file", file.type);
       return;
     }
 
@@ -134,6 +136,7 @@ export default function CreateIdeaPage() {
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
       toast.error("Image size must be less than 10MB");
+      console.log("[handleImageChange] File too large", file.size);
       return;
     }
 
@@ -152,12 +155,14 @@ export default function CreateIdeaPage() {
       const token = localStorage.getItem("token");
       if (!token) {
         toast.error("Please sign in first");
+        console.log("[handleImageChange] No token in localStorage");
         return;
       }
 
       const formData = new FormData();
       formData.append("file", file);
 
+      console.log("[handleImageChange] Uploading image to /api/upload/image");
       const response = await fetch("/api/upload/image", {
         method: "POST",
         headers: {
@@ -167,6 +172,7 @@ export default function CreateIdeaPage() {
       });
 
       const result = await response.json();
+      console.log("[handleImageChange] Upload response", response.status, result);
 
       if (!response.ok) {
         toast.error(result.error || "Failed to upload image");
@@ -179,7 +185,7 @@ export default function CreateIdeaPage() {
       setValue("image", result.url, { shouldValidate: true });
       toast.success("Image uploaded successfully");
     } catch (error) {
-      console.error("Image upload error:", error);
+      console.error("[handleImageChange] Image upload error:", error);
       toast.error("Failed to upload image. Please try again.");
       setImageFile(null);
       setImagePreview(null);
@@ -195,9 +201,11 @@ export default function CreateIdeaPage() {
   };
 
   const onSubmit = async (data: CreateIdeaFormData) => {
+    console.log("[onSubmit] Called with data:", data);
     // Check wallet connection
     if (!isConnected || !address) {
       toast.error("Please connect your wallet first");
+      console.log("[onSubmit] Wallet not connected", { isConnected, address });
       return;
     }
 
@@ -205,6 +213,7 @@ export default function CreateIdeaPage() {
     const userStr = localStorage.getItem("user");
     if (!userStr) {
       toast.error("Please sign in first");
+      console.log("[onSubmit] No user in localStorage");
       router.push("/login");
       return;
     }
@@ -214,35 +223,46 @@ export default function CreateIdeaPage() {
 
     if (!token) {
       toast.error("Please sign in first");
+      console.log("[onSubmit] No token in localStorage");
       router.push("/login");
       return;
     }
 
     setIsSubmitting(true);
     try {
+      const payload = {
+        title: data.title,
+        image: data.image,
+        categories: data.categories,
+        preview: data.preview,
+        fullContent: data.fullContent,
+        sellerWalletAddress: address,
+        preferredChain: data.preferredChain,
+        sellerName: user.name,
+        sellerTwitter: user.twitterUrl,
+      };
+      console.log("[onSubmit] Submitting payload:", payload);
       const response = await fetch("/api/ideas/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          title: data.title,
-          image: data.image,
-          categories: data.categories,
-          preview: data.preview,
-          fullContent: data.fullContent,
-          sellerWalletAddress: address,
-          preferredChain: data.preferredChain,
-          sellerName: user.name,
-          sellerTwitter: user.twitterUrl,
-        }),
+        body: JSON.stringify(payload),
       });
 
-      const result = await response.json();
+      let result = null;
+      try {
+        result = await response.json();
+      } catch (jsonErr) {
+        console.error("[onSubmit] Error parsing JSON response:", jsonErr);
+        toast.error("Failed to parse server response");
+        return;
+      }
+      console.log("[onSubmit] Response status:", response.status, "Result:", result);
 
       if (!response.ok) {
-        toast.error(result.error || "Failed to submit idea");
+        toast.error(result?.error || "Failed to submit idea");
         return;
       }
 
@@ -251,7 +271,7 @@ export default function CreateIdeaPage() {
       );
       router.push("/marketplace");
     } catch (error) {
-      console.error("Submit idea error:", error);
+      console.error("[onSubmit] Submit idea error:", error);
       toast.error("An error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);
