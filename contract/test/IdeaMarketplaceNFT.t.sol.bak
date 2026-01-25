@@ -1,0 +1,244 @@
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
+
+describe("IdeaMarketplaceNFT", function () {
+  let ideaNFT;
+  let owner;
+  let addr1;
+  let addr2;
+
+  beforeEach(async function () {
+    [owner, addr1, addr2] = await ethers.getSigners();
+    
+    const IdeaMarketplaceNFT = await ethers.getContractFactory("IdeaMarketplaceNFT");
+    ideaNFT = await IdeaMarketplaceNFT.deploy();
+    await ideaNFT.waitForDeployment();
+  });
+
+  describe("Deployment", function () {
+    it("Should set the correct name and symbol", async function () {
+      expect(await ideaNFT.name()).to.equal("Idea Marketplace");
+      expect(await ideaNFT.symbol()).to.equal("IDEA");
+    });
+  });
+
+  describe("Minting", function () {
+    it("Should mint an NFT and assign it to the caller", async function () {
+      const title = "My Great Idea";
+      const imageIPFS = "ipfs://QmExample123";
+      
+      await ideaNFT.connect(addr1).mint(title, imageIPFS);
+      
+      expect(await ideaNFT.ownerOf(0)).to.equal(addr1.address);
+      expect(await ideaNFT.balanceOf(addr1.address)).to.equal(1);
+    });
+
+    it("Should return correct token ID on mint", async function () {
+      const tx = await ideaNFT.mint("Test Idea", "ipfs://test");
+      const receipt = await tx.wait();
+      
+      // Token ID should be 0 for first mint
+      expect(await ideaNFT.ownerOf(0)).to.equal(owner.address);
+    });
+
+    it("Should increment token IDs correctly", async function () {
+      await ideaNFT.mint("Idea 1", "ipfs://1");
+      await ideaNFT.mint("Idea 2", "ipfs://2");
+      await ideaNFT.mint("Idea 3", "ipfs://3");
+      
+      expect(await ideaNFT.ownerOf(0)).to.equal(owner.address);
+      expect(await ideaNFT.ownerOf(1)).to.equal(owner.address);
+      expect(await ideaNFT.ownerOf(2)).to.equal(owner.address);
+    });
+
+    it("Should store metadata correctly", async function () {
+      const title = "Blockchain Innovation";
+      const imageIPFS = "ipfs://QmABC123";
+      
+      await ideaNFT.mint(title, imageIPFS);
+      
+      const metadata = await ideaNFT.ideaMetadata(0);
+      expect(metadata.title).to.equal(title);
+      expect(metadata.imageIPFS).to.equal(imageIPFS);
+    });
+
+    it("Should allow multiple users to mint", async function () {
+      await ideaNFT.connect(addr1).mint("Idea A", "ipfs://a");
+      await ideaNFT.connect(addr2).mint("Idea B", "ipfs://b");
+      
+      expect(await ideaNFT.ownerOf(0)).to.equal(addr1.address);
+      expect(await ideaNFT.ownerOf(1)).to.equal(addr2.address);
+    });
+  });
+
+  describe("TokenURI and Metadata", function () {
+    beforeEach(async function () {
+      await ideaNFT.mint("My Test Idea", "ipfs://QmTest");
+    });
+
+    it("Should return valid tokenURI", async function () {
+      const uri = await ideaNFT.tokenURI(0);
+      expect(uri).to.include("data:application/json;base64,");
+    });
+
+    it("Should include correct data in tokenURI", async function () {
+      const uri = await ideaNFT.tokenURI(0);
+      const json = Buffer.from(
+        uri.replace("data:application/json;base64,", ""),
+        "base64"
+      ).toString();
+      
+      const metadata = JSON.parse(json);
+      expect(metadata.name).to.equal("My Test Idea");
+      expect(metadata.image).to.equal("ipfs://QmTest");
+      expect(metadata.description).to.equal("Idea NFT from Marketplace");
+    });
+
+    it("Should revert when querying non-existent token", async function () {
+      await expect(ideaNFT.tokenURI(999))
+        .to.be.revertedWith("NFT does not exist");
+    });
+
+    it("Should include token ID in attributes", async function () {
+      const uri = await ideaNFT.tokenURI(0);
+      const json = Buffer.from(
+        uri.replace("data:application/json;base64,", ""),
+        "base64"
+      ).toString();
+      
+      const metadata = JSON.parse(json);
+      expect(metadata.attributes[0].trait_type).to.equal("Token ID");
+      expect(metadata.attributes[0].value).to.equal("0");
+    });
+  });
+
+  describe("Symbol Generation", function () {
+    it("Should generate symbol from single word", async function () {
+      await ideaNFT.mint("Innovation", "ipfs://test");
+      const uri = await ideaNFT.tokenURI(0);
+      const json = Buffer.from(
+        uri.replace("data:application/json;base64,", ""),
+        "base64"
+      ).toString();
+      const metadata = JSON.parse(json);
+      expect(metadata.symbol).to.equal("I");
+    });
+
+    it("Should generate symbol from multiple words", async function () {
+      await ideaNFT.mint("Blockchain Technology Innovation", "ipfs://test");
+      const uri = await ideaNFT.tokenURI(0);
+      const json = Buffer.from(
+        uri.replace("data:application/json;base64,", ""),
+        "base64"
+      ).toString();
+      const metadata = JSON.parse(json);
+      expect(metadata.symbol).to.equal("BTI");
+    });
+
+    it("Should convert lowercase to uppercase in symbol", async function () {
+      await ideaNFT.mint("decentralized finance platform", "ipfs://test");
+      const uri = await ideaNFT.tokenURI(0);
+      const json = Buffer.from(
+        uri.replace("data:application/json;base64,", ""),
+        "base64"
+      ).toString();
+      const metadata = JSON.parse(json);
+      expect(metadata.symbol).to.equal("DFP");
+    });
+
+    it("Should handle titles with extra spaces", async function () {
+      await ideaNFT.mint("My  Great   Idea", "ipfs://test");
+      const uri = await ideaNFT.tokenURI(0);
+      const json = Buffer.from(
+        uri.replace("data:application/json;base64,", ""),
+        "base64"
+      ).toString();
+      const metadata = JSON.parse(json);
+      expect(metadata.symbol).to.equal("MGI");
+    });
+
+    it("Should limit symbol to 10 characters", async function () {
+      await ideaNFT.mint(
+        "One Two Three Four Five Six Seven Eight Nine Ten Eleven",
+        "ipfs://test"
+      );
+      const uri = await ideaNFT.tokenURI(0);
+      const json = Buffer.from(
+        uri.replace("data:application/json;base64,", ""),
+        "base64"
+      ).toString();
+      const metadata = JSON.parse(json);
+      expect(metadata.symbol.length).to.be.at.most(10);
+    });
+  });
+
+  describe("NFT Transfers", function () {
+    beforeEach(async function () {
+      await ideaNFT.connect(addr1).mint("Transfer Test", "ipfs://transfer");
+    });
+
+    it("Should allow owner to transfer NFT", async function () {
+      await ideaNFT.connect(addr1).transferFrom(addr1.address, addr2.address, 0);
+      expect(await ideaNFT.ownerOf(0)).to.equal(addr2.address);
+    });
+
+    it("Should update balances after transfer", async function () {
+      await ideaNFT.connect(addr1).transferFrom(addr1.address, addr2.address, 0);
+      
+      expect(await ideaNFT.balanceOf(addr1.address)).to.equal(0);
+      expect(await ideaNFT.balanceOf(addr2.address)).to.equal(1);
+    });
+
+    it("Should prevent non-owner from transferring", async function () {
+      await expect(
+        ideaNFT.connect(addr2).transferFrom(addr1.address, addr2.address, 0)
+      ).to.be.reverted;
+    });
+
+    it("Should preserve metadata after transfer", async function () {
+      await ideaNFT.connect(addr1).transferFrom(addr1.address, addr2.address, 0);
+      
+      const metadata = await ideaNFT.ideaMetadata(0);
+      expect(metadata.title).to.equal("Transfer Test");
+      expect(metadata.imageIPFS).to.equal("ipfs://transfer");
+    });
+  });
+
+  describe("Edge Cases", function () {
+    it("Should handle empty title", async function () {
+      await ideaNFT.mint("", "ipfs://empty");
+      const metadata = await ideaNFT.ideaMetadata(0);
+      expect(metadata.title).to.equal("");
+    });
+
+    it("Should handle very long titles", async function () {
+      const longTitle = "A".repeat(500);
+      await ideaNFT.mint(longTitle, "ipfs://long");
+      const metadata = await ideaNFT.ideaMetadata(0);
+      expect(metadata.title).to.equal(longTitle);
+    });
+
+    it("Should handle special characters in title", async function () {
+      await ideaNFT.mint("Idea #1: AI & ML!", "ipfs://special");
+      const uri = await ideaNFT.tokenURI(0);
+      expect(uri).to.include("base64");
+    });
+
+    it("Should handle IPFS CIDv1", async function () {
+      const cidv1 = "ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
+      await ideaNFT.mint("CIDv1 Test", cidv1);
+      const metadata = await ideaNFT.ideaMetadata(0);
+      expect(metadata.imageIPFS).to.equal(cidv1);
+    });
+  });
+
+  describe("Gas Optimization", function () {
+    it("Should mint with reasonable gas cost", async function () {
+      const tx = await ideaNFT.mint("Gas Test", "ipfs://gas");
+      const receipt = await tx.wait();
+      
+      // Gas should be reasonable (adjust threshold as needed)
+      expect(receipt.gasUsed).to.be.lt(200000);
+    });
+  });
+});
